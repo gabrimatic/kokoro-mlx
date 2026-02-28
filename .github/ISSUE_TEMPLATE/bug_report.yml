@@ -1,0 +1,73 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A single sentence describing what's broken.
+      placeholder: "Generated audio is silent for valid input text."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Shortest path to reproduce the issue.
+      placeholder: |
+        1. Initialize with `KokoroTTS()`
+        2. Call `tts.generate("Hello world")`
+        3. Observe silent audio output
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What correct behavior looks like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened, including any error messages or tracebacks.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      description: Output of `python -c "import kokoro_mlx; print(kokoro_mlx.__version__)"`.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: macOS version and chip
+      placeholder: "macOS 15.0, M4"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python and MLX versions
+      placeholder: "Python 3.12, MLX 0.22.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else that might help with triage.
+    validations:
+      required: false

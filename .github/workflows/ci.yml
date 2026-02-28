@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-checks:
+    name: Python checks
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]" ruff
+
+      - name: Import smoke test
+        run: |
+          python -c "
+          from kokoro_mlx import KokoroTTS, TTSResult
+          from kokoro_mlx.model import KokoroModel
+          from kokoro_mlx.modules import TextEncoder, ProsodyPredictor
+          from kokoro_mlx.istftnet import Generator, Decoder
+          from kokoro_mlx.generate import generate, generate_stream
+          from kokoro_mlx.phonemize import Phonemizer
+          from kokoro_mlx.voices import VoiceManager
+          from kokoro_mlx.config import KokoroConfig, ISTFTNetConfig, PLBertConfig
+          print('All imports OK')
+          "
+
+      - name: Unit tests
+        run: python -m pytest tests/ -v -m "not slow"
+
+      - name: Lint with ruff
+        run: ruff check src/

@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kokoro-mlx"
+version = "0.1.0"
+description = "Kokoro TTS inference on Apple Silicon via MLX"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10,<3.13"
+authors = [
+    { name = "Soroush Yousefpour" }
+]
+keywords = ["tts", "text-to-speech", "kokoro", "mlx", "apple-silicon"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: MacOS X",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+dependencies = [
+    "mlx>=0.22.0",
+    "numpy>=1.24.0",
+    "huggingface-hub>=0.20.0",
+    "soundfile>=0.12.0",
+    "misaki[en]>=0.9.4",
+]
+
+[project.urls]
+Homepage = "https://github.com/gabrimatic/kokoro-mlx"
+Repository = "https://github.com/gabrimatic/kokoro-mlx"
+"Bug Tracker" = "https://github.com/gabrimatic/kokoro-mlx/issues"
+Changelog = "https://github.com/gabrimatic/kokoro-mlx/releases"
+
+[project.optional-dependencies]
+audio = ["sounddevice>=0.4.0"]
+dev = ["pytest"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kokoro_mlx"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests that load the real model weights (deselect with -m 'not slow')",
+]
