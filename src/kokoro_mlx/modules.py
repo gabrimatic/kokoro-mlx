@@ -11,7 +11,6 @@ from typing import Optional
 import mlx.core as mx
 import mlx.nn as nn
 
-
 # ---------------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------------
@@ -518,7 +517,7 @@ class ProsodyPredictor(nn.Module):
         d = self.text_encoder(texts, style, text_lengths, mask)  # (B, T, d_hid+style)
         # d for lstm input: concat style
         B, T, _ = d.shape
-        s = mx.broadcast_to(style[:, None, :], (B, T, style.shape[-1]))
+        mx.broadcast_to(style[:, None, :], (B, T, style.shape[-1]))
         # d already has style concat from DurationEncoder last step — actually no,
         # DurationEncoder returns (B, T, d_hid+sty_dim) from the last LSTM's output
         # which is just d_hid. Let me re-check: the last block in DurationEncoder

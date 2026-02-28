@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import mlx.core as mx
 import mlx.nn as nn
@@ -15,7 +14,6 @@ import numpy as np
 from .config import KokoroConfig
 from .istftnet import Decoder
 from .modules import ALBERT, BiLSTM, ProsodyPredictor, TextEncoder
-
 
 # ---------------------------------------------------------------------------
 # Weight loading helpers
@@ -295,7 +293,6 @@ def load_weights(model: "KokoroModel", weights: dict[str, mx.array]) -> int:
 
 def _load_adain_resblk1d(blk, pfx: str, weights: dict, loaded: set) -> None:
     """Load AdainResBlk1d weights."""
-    from .modules import WeightNormConv1d, WeightNormConvTranspose1d
     for k in _load_wn_conv_weights(blk.conv1, f"{pfx}.conv1", weights):
         loaded.add(k)
     for k in _load_wn_conv_weights(blk.conv2, f"{pfx}.conv2", weights):
@@ -435,7 +432,7 @@ class KokoroModel(nn.Module):
         config = KokoroConfig.from_file(config_path)
         model = cls(config)
         weights = _load_safetensors(weights_path)
-        n_loaded = load_weights(model, weights)
+        load_weights(model, weights)
         mx.eval(model.parameters())
         return model
 

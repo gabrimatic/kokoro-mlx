@@ -11,8 +11,7 @@ import mlx.core as mx
 import mlx.nn as nn
 import numpy as np
 
-from .modules import AdaLayerNorm, WeightNormConv1d, WeightNormConvTranspose1d, get_padding
-
+from .modules import WeightNormConv1d, WeightNormConvTranspose1d, get_padding
 
 # ---------------------------------------------------------------------------
 # InstanceNorm1d (not built-in in MLX)
