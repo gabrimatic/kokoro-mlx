@@ -18,10 +18,12 @@ def manager() -> VoiceManager:
 
 
 class TestVoiceManager:
+    @pytest.mark.slow
     def test_list_voices_count(self, manager):
         voices = manager.list_voices()
         assert len(voices) == 54
 
+    @pytest.mark.slow
     def test_list_voices_includes_default(self, manager):
         assert DEFAULT_VOICE in manager.list_voices()
 

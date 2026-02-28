@@ -30,6 +30,7 @@ def phonemizer(vocab) -> Phonemizer:
     return Phonemizer(vocab=vocab)
 
 
+@pytest.mark.slow
 class TestPhonemize:
     def test_hello_world_returns_phonemes(self, phonemizer):
         phonemes, token_ids = phonemizer.phonemize("Hello, world.")
