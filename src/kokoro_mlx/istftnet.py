@@ -147,6 +147,28 @@ class AdainResBlk1d(nn.Module):
 
 
 # ---------------------------------------------------------------------------
+# Interpolation helper
+# ---------------------------------------------------------------------------
+
+
+def _interpolate_1d(x: mx.array, out_len: int) -> mx.array:
+    """1-D linear interpolation along axis=1 (align_corners=False convention).
+
+    x: (B, L_in, D) → (B, out_len, D)
+    """
+    L_in = x.shape[1]
+    if L_in == out_len:
+        return x
+    # Source coordinate for each output position (align_corners=False)
+    idx = (mx.arange(out_len, dtype=mx.float32) + 0.5) * (L_in / out_len) - 0.5
+    idx = mx.clip(idx, 0, L_in - 1)
+    lo = mx.floor(idx).astype(mx.int32)
+    hi = mx.minimum(lo + 1, L_in - 1)
+    frac = (idx - lo.astype(mx.float32))[:, None]  # (out_len, 1) for broadcasting over D
+    return x[:, lo, :] * (1.0 - frac) + x[:, hi, :] * frac
+
+
+# ---------------------------------------------------------------------------
 # SineGen
 # ---------------------------------------------------------------------------
 
@@ -179,12 +201,24 @@ class SineGen(nn.Module):
         rand_ini = mx.concatenate([mx.zeros((f0_values.shape[0], 1)), rand_ini[:, 1:]], axis=1)
         rad_values = rad_values.at[:, 0, :].add(rand_ini)
 
-        # Cumulative phase via direct cumsum over the time axis.
-        # The previous downsample→cumsum→upsample approach produced block-constant
-        # phase for hundreds of samples, turning sin(phase) into a step function and
-        # causing the audible "shaking" artifact.
-        phase = mx.cumsum(rad_values, axis=1) % 1.0  # (B, L, dim), wrapped to [0, 1)
-        return mx.sin(phase * 2.0 * math.pi)
+        # Match the original phase computation: downsample rad values, cumsum at
+        # the low rate, then upsample the phase back.  This produces the smooth
+        # phase trajectory that the model was trained on.
+        scale = self.upsample_scale
+        B, L, D = f0_values.shape
+        L_down = L // scale
+
+        # Downsample via linear interpolation (align_corners=False convention)
+        rad_down = _interpolate_1d(rad_values, L_down)  # (B, L_down, D)
+
+        # Cumulative phase at the low rate, then scale up
+        phase = mx.cumsum(rad_down, axis=1) * (2.0 * math.pi)  # (B, L_down, D)
+        phase = phase * scale
+
+        # Upsample phase back to full resolution via linear interpolation
+        phase = _interpolate_1d(phase, L)  # (B, L, D)
+
+        return mx.sin(phase)
 
     def __call__(self, f0: mx.array):
         """f0: (batch, length, 1) → sine_waves (batch, length, dim), uv, noise"""
@@ -262,16 +296,19 @@ class iSTFT(nn.Module):
         self._window = mx.array(win)
         self._n_bins = n_bins
 
-        # Precompute iDFT basis matrices (transposed, scaled by 1/N):
-        # x[n] = (1/N) * sum_k [ X_r[k]*cos(2pi*k*n/N) - X_i[k]*sin(2pi*k*n/N) ]
-        # where X_r = real part, X_i = imaginary part of DFT output
-        # (note: our DFT sign convention: X_i = -sum x[n]*sin => x[n] uses -X_i*sin => - sign cancels)
-        angles_pos = 2.0 * np.pi * np.outer(freqs, t) / n_fft  # (n_bins, n_fft), positive angles
-        cos_mat_T = (np.cos(angles_pos) / n_fft).T  # (n_fft, n_bins)
-        sin_mat_T = (np.sin(angles_pos) / n_fft).T  # (n_fft, n_bins)
+        # Precompute iDFT basis matrices from the half-spectrum (bins 0..N/2).
+        # A real signal's full DFT has conjugate symmetry: X[N-k] = conj(X[k]).
+        # When reconstructing from only the non-negative bins, bins 1..N/2-1
+        # must be scaled by 2 to account for their conjugate counterparts.
+        # Bins 0 (DC) and N/2 (Nyquist) have no conjugate pair and keep 1/N.
+        angles_pos = 2.0 * np.pi * np.outer(freqs, t) / n_fft  # (n_bins, n_fft)
+        conjugate_scale = np.ones(n_bins, dtype=np.float32)
+        conjugate_scale[1 : n_bins - 1] = 2.0
+        cos_mat_T = (np.cos(angles_pos) * conjugate_scale[:, None] / n_fft).T  # (n_fft, n_bins)
+        sin_mat_T = (np.sin(angles_pos) * conjugate_scale[:, None] / n_fft).T
         # Store as (1, n_fft, n_bins) for batched matmul
-        self._cos_mat_T = mx.array(cos_mat_T[None])  # (1, n_fft, n_bins)
-        self._sin_mat_T = mx.array(sin_mat_T[None])  # (1, n_fft, n_bins)
+        self._cos_mat_T = mx.array(cos_mat_T[None])
+        self._sin_mat_T = mx.array(sin_mat_T[None])
 
     def transform(self, x: mx.array):
         """x: (batch, time) → magnitude (batch, n_bins, frames), phase (batch, n_bins, frames)"""

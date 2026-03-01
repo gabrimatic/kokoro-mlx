@@ -24,7 +24,12 @@ class Phonemizer:
         if language == "en":
             from misaki import en
 
-            return en.G2P()
+            # unk="" suppresses the '❓' sentinel that misaki emits for
+            # unresolvable tokens (e.g. colons in time expressions).  Without
+            # this, the sentinel passes through to _ids_from_phonemes where it
+            # is silently dropped because '❓' is not in Kokoro's vocab,
+            # potentially merging surrounding phonemes and distorting output.
+            return en.G2P(unk="")
         raise ValueError(f"Unsupported language: {language!r}")
 
     def _ids_from_phonemes(self, phonemes: str) -> list[int]:
