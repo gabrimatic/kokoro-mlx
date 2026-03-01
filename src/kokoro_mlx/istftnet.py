@@ -495,7 +495,7 @@ class Generator(nn.Module):
             x = xs / self.num_kernels
 
         x = nn.leaky_relu(x)
-        x = self.conv_post(x)  # (B, n_fft+2, T)
+        x = self.conv_post(x).astype(mx.float32)  # float32 for precise waveform reconstruction
         spec = mx.exp(x[:, :self.post_n_fft // 2 + 1, :])
         phase = mx.sin(x[:, self.post_n_fft // 2 + 1:, :])
         return self.stft.inverse(spec, phase)  # (B, 1, samples)

@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-import time
+import queue
+import threading
 from pathlib import Path
 from typing import Iterator
 
@@ -37,10 +38,11 @@ def play_stream(
     sample_rate: int = SAMPLE_RATE,
     stop_event=None,
 ) -> None:
-    """Streaming playback from a generator with optional stop support.
+    """Gapless streaming playback from a generator.
 
-    Plays each audio chunk as it arrives from the generator. If *stop_event*
-    is set, playback stops at the next chunk boundary.
+    Uses a single persistent ``OutputStream`` for the entire playback session.
+    A background thread drains the generator into a queue so audio generation
+    and playback overlap, eliminating inter-chunk silence.
 
     Args:
         audio_generator: Iterator yielding float32 numpy arrays.
@@ -54,22 +56,50 @@ def play_stream(
             "sounddevice is required for playback. Install it with: pip install sounddevice"
         ) from exc
 
-    for chunk in audio_generator:
-        if stop_event and stop_event.is_set():
-            sd.stop()
-            return
+    audio_q: queue.Queue[np.ndarray | None] = queue.Queue()
+    gen_error: list[Exception | None] = [None]
 
-        sd.play(chunk, samplerate=sample_rate)
-        duration = len(chunk) / sample_rate
-        deadline = time.monotonic() + duration + 0.1
+    def _feed() -> None:
+        try:
+            for chunk in audio_generator:
+                if stop_event and stop_event.is_set():
+                    return
+                chunk = np.asarray(chunk, dtype=np.float32)
+                if chunk.ndim > 1:
+                    chunk = chunk.flatten()
+                if len(chunk) > 0:
+                    audio_q.put(chunk)
+        except Exception as exc:
+            gen_error[0] = exc
+        finally:
+            audio_q.put(None)
 
-        while time.monotonic() < deadline:
+    feed_thread = threading.Thread(target=_feed, daemon=True)
+    feed_thread.start()
+
+    write_size = sample_rate // 10  # 100 ms pieces for responsiveness
+
+    with sd.OutputStream(samplerate=sample_rate, channels=1, dtype="float32") as stream:
+        while True:
             if stop_event and stop_event.is_set():
-                sd.stop()
-                return
-            time.sleep(0.04)
+                break
+            try:
+                chunk = audio_q.get(timeout=0.05)
+            except queue.Empty:
+                continue
+            if chunk is None:
+                break
 
-        sd.wait()
+            for i in range(0, len(chunk), write_size):
+                if stop_event and stop_event.is_set():
+                    break
+                piece = chunk[i : i + write_size]
+                stream.write(piece.reshape(-1, 1))
+
+    feed_thread.join(timeout=2.0)
+
+    if gen_error[0] is not None:
+        raise gen_error[0]
 
 
 def save_wav(audio: np.ndarray, path: str | Path, sample_rate: int = SAMPLE_RATE) -> None:

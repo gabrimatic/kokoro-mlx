@@ -13,10 +13,10 @@ from typing import Iterator
 import numpy as np
 
 from .config import KokoroConfig
-from .generate import generate, generate_stream
+from .generate import SAMPLE_RATE, generate, generate_stream
 from .model import KokoroModel
 from .phonemize import Phonemizer
-from .playback import SAMPLE_RATE, play, play_stream, save_wav
+from .playback import play, play_stream, save_wav
 from .voices import DEFAULT_VOICE, VoiceManager
 
 
@@ -24,10 +24,10 @@ from .voices import DEFAULT_VOICE, VoiceManager
 class TTSResult:
     """Result from a TTS generation call."""
 
-    audio: np.ndarray   # float32 at 24kHz
-    sample_rate: int    # always 24000
-    duration: float     # seconds
-    voice: str          # voice name used
+    audio: np.ndarray
+    sample_rate: int
+    duration: float
+    voice: str
 
 
 class KokoroTTS:
@@ -56,7 +56,6 @@ class KokoroTTS:
         self._voices = voice_manager
         self._model_path = Path(model_path)
         self._lock = threading.Lock()
-        # Cache the Phonemizer — loading spacy is expensive.
         self._phonemizer = Phonemizer(config.vocab)
 
     # ------------------------------------------------------------------
@@ -77,7 +76,6 @@ class KokoroTTS:
         path = Path(model_id_or_path)
 
         if not path.is_dir():
-            # Download from HuggingFace Hub and resolve to local snapshot directory.
             from huggingface_hub import snapshot_download
 
             local_dir = snapshot_download(repo_id=str(model_id_or_path))
@@ -93,7 +91,9 @@ class KokoroTTS:
     # Core API
     # ------------------------------------------------------------------
 
-    def generate(self, text: str, voice: str = DEFAULT_VOICE, speed: float = 1.0) -> TTSResult:
+    def generate(
+        self, text: str, voice: str = DEFAULT_VOICE, speed: float = 1.0, sample_rate: int = SAMPLE_RATE,
+    ) -> TTSResult:
         """Synthesize *text* and return a TTSResult.
 
         Thread-safe.
@@ -102,9 +102,7 @@ class KokoroTTS:
             text: Input text to synthesize.
             voice: Voice name (see :meth:`list_voices`).
             speed: Speaking rate multiplier (>1 is faster, <1 is slower).
-
-        Returns:
-            A TTSResult with the audio array and metadata.
+            sample_rate: Output sample rate (24000 or 48000).
         """
         with self._lock:
             audio = generate(
@@ -115,13 +113,14 @@ class KokoroTTS:
                 voice=voice,
                 speed=speed,
                 phonemizer=self._phonemizer,
+                sample_rate=sample_rate,
             )
 
-        duration = len(audio) / self.SAMPLE_RATE
-        return TTSResult(audio=audio, sample_rate=self.SAMPLE_RATE, duration=duration, voice=voice)
+        duration = len(audio) / sample_rate
+        return TTSResult(audio=audio, sample_rate=sample_rate, duration=duration, voice=voice)
 
     def generate_stream(
-        self, text: str, voice: str = DEFAULT_VOICE, speed: float = 1.0
+        self, text: str, voice: str = DEFAULT_VOICE, speed: float = 1.0, sample_rate: int = SAMPLE_RATE,
     ) -> Iterator[np.ndarray]:
         """Synthesize *text* and yield audio chunks as they are produced.
 
@@ -132,9 +131,7 @@ class KokoroTTS:
             text: Input text to synthesize.
             voice: Voice name (see :meth:`list_voices`).
             speed: Speaking rate multiplier.
-
-        Yields:
-            Float32 numpy arrays, one per sentence chunk.
+            sample_rate: Output sample rate (24000 or 48000).
         """
         yield from generate_stream(
             text=text,
@@ -144,6 +141,7 @@ class KokoroTTS:
             voice=voice,
             speed=speed,
             phonemizer=self._phonemizer,
+            sample_rate=sample_rate,
         )
 
     def speak(
@@ -153,6 +151,7 @@ class KokoroTTS:
         speed: float = 1.0,
         stream: bool = False,
         stop_event=None,
+        sample_rate: int = SAMPLE_RATE,
     ) -> None:
         """Synthesize and immediately play *text* through the speakers.
 
@@ -162,16 +161,17 @@ class KokoroTTS:
             speed: Speaking rate multiplier.
             stream: When True, generate and play chunk-by-chunk for lower latency.
             stop_event: Optional ``threading.Event``; playback halts when set.
+            sample_rate: Output sample rate (24000 or 48000).
         """
         if stream:
             play_stream(
-                self.generate_stream(text, voice=voice, speed=speed),
-                sample_rate=self.SAMPLE_RATE,
+                self.generate_stream(text, voice=voice, speed=speed, sample_rate=sample_rate),
+                sample_rate=sample_rate,
                 stop_event=stop_event,
             )
         else:
-            result = self.generate(text, voice=voice, speed=speed)
-            play(result.audio, sample_rate=self.SAMPLE_RATE)
+            result = self.generate(text, voice=voice, speed=speed, sample_rate=sample_rate)
+            play(result.audio, sample_rate=sample_rate)
 
     def save(
         self,
@@ -179,6 +179,7 @@ class KokoroTTS:
         path: str | Path,
         voice: str = DEFAULT_VOICE,
         speed: float = 1.0,
+        sample_rate: int = SAMPLE_RATE,
     ) -> TTSResult:
         """Synthesize *text* and write the audio to a WAV file.
 
@@ -187,12 +188,10 @@ class KokoroTTS:
             path: Destination file path.
             voice: Voice name.
             speed: Speaking rate multiplier.
-
-        Returns:
-            The TTSResult (audio also written to disk).
+            sample_rate: Output sample rate (24000 or 48000).
         """
-        result = self.generate(text, voice=voice, speed=speed)
-        save_wav(result.audio, path, sample_rate=self.SAMPLE_RATE)
+        result = self.generate(text, voice=voice, speed=speed, sample_rate=sample_rate)
+        save_wav(result.audio, path, sample_rate=sample_rate)
         return result
 
     def list_voices(self) -> list[str]:
