@@ -36,9 +36,9 @@ Model weights download automatically from HuggingFace Hub on first use.
 
 - **Fully on-device** via MLX, no server, no cloud, no network during inference
 - **Pure implementation** with no PyTorch or transformers dependency
-- **48 kHz output** via FFT-based upsampling from native 24 kHz, extending the signal to the sample rate modern DACs and headphones prefer
-- **Float32 vocoder precision** where it matters: the heavy neural network runs in bf16 for speed, while the final waveform reconstruction (iSTFT, phase, overlap-add) runs in float32 to eliminate quantization noise
-- **Gapless streaming** with a persistent audio stream and producer thread, so sentence boundaries are seamless instead of interrupted by stream teardown
+- **48 kHz output** from native 24 kHz via FFT upsampling, matching the sample rate modern audio hardware expects
+- **Mixed-precision vocoder**, bf16 through the network, float32 for the final waveform reconstruction
+- **Gapless streaming** over a single persistent audio stream with no inter-chunk silence
 - **54 voices** across American English, British English, and additional languages
 - **WAV export** with a single method call
 - **Thread-safe** with internal lock for concurrent callers
@@ -194,7 +194,7 @@ Optional 2x FFT upsample (24 kHz → 48 kHz)
 TTSResult { audio float32, duration, voice }
 ```
 
-The neural network runs in bf16 for throughput. At the vocoder boundary, the signal is promoted to float32 for the final waveform reconstruction: exponential magnitude recovery, phase extraction, inverse DFT, and overlap-add synthesis. This split keeps inference fast while preserving the precision that the iSTFT path requires.
+The network runs in bf16 for throughput. At the vocoder output, the signal is promoted to float32 for waveform reconstruction: magnitude recovery, phase extraction, inverse DFT, and overlap-add synthesis. This keeps inference fast while preserving the precision the iSTFT path needs.
 
 ---
 
