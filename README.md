@@ -36,8 +36,10 @@ Model weights download automatically from HuggingFace Hub on first use.
 
 - **Fully on-device** via MLX, no server, no cloud, no network during inference
 - **Pure implementation** with no PyTorch or transformers dependency
+- **48 kHz output** via FFT-based upsampling from native 24 kHz, extending the signal to the sample rate modern DACs and headphones prefer
+- **Float32 vocoder precision** where it matters: the heavy neural network runs in bf16 for speed, while the final waveform reconstruction (iSTFT, phase, overlap-add) runs in float32 to eliminate quantization noise
+- **Gapless streaming** with a persistent audio stream and producer thread, so sentence boundaries are seamless instead of interrupted by stream teardown
 - **54 voices** across American English, British English, and additional languages
-- **Streaming synthesis** for low-latency sentence-by-sentence playback
 - **WAV export** with a single method call
 - **Thread-safe** with internal lock for concurrent callers
 - **Context manager** for automatic resource cleanup
@@ -59,7 +61,7 @@ tts = KokoroTTS.from_pretrained("mlx-community/Kokoro-82M-bf16")
 tts = KokoroTTS.from_pretrained("/path/to/model")
 ```
 
-### `tts.generate(text, voice, speed) -> TTSResult`
+### `tts.generate(text, voice, speed, sample_rate) -> TTSResult`
 
 Synthesize text and return a `TTSResult`.
 
@@ -68,12 +70,13 @@ Synthesize text and return a `TTSResult`.
 | `text` | `str` | required | Input text to synthesize |
 | `voice` | `str` | `"af_heart"` | Voice name (see [Available Voices](#available-voices)) |
 | `speed` | `float` | `1.0` | Speaking rate multiplier (>1 faster, <1 slower) |
+| `sample_rate` | `int` | `24000` | Output sample rate: 24000 (native) or 48000 (2x upsampled) |
 
-### `tts.generate_stream(text, voice, speed) -> Iterator[np.ndarray]`
+### `tts.generate_stream(text, voice, speed, sample_rate) -> Iterator[np.ndarray]`
 
 Synthesize text and yield audio chunks sentence by sentence. Lower latency than `generate` for longer inputs.
 
-### `tts.speak(text, voice, speed, stream, stop_event)`
+### `tts.speak(text, voice, speed, stream, stop_event, sample_rate)`
 
 Synthesize and immediately play text through the speakers.
 
@@ -84,13 +87,14 @@ Synthesize and immediately play text through the speakers.
 | `speed` | `float` | `1.0` | Speaking rate multiplier |
 | `stream` | `bool` | `False` | Play chunk-by-chunk for lower latency |
 | `stop_event` | `threading.Event` or `None` | `None` | Set to interrupt playback |
+| `sample_rate` | `int` | `24000` | Output sample rate: 24000 or 48000 |
 
-### `tts.save(text, path, voice, speed) -> TTSResult`
+### `tts.save(text, path, voice, speed, sample_rate) -> TTSResult`
 
 Synthesize text and write audio to a WAV file.
 
 ```python
-result = tts.save("Hello, world.", "output.wav")
+result = tts.save("Hello, world.", "output.wav", sample_rate=48000)
 ```
 
 ### `tts.list_voices() -> list[str]`
@@ -116,8 +120,8 @@ with KokoroTTS.from_pretrained() as tts:
 ```python
 @dataclass
 class TTSResult:
-    audio: np.ndarray   # float32 at 24 kHz
-    sample_rate: int    # always 24000
+    audio: np.ndarray   # float32
+    sample_rate: int    # 24000 or 48000
     duration: float     # seconds
     voice: str          # voice name used
 ```
@@ -178,14 +182,19 @@ ProsodyPredictor (duration + pitch)
   ├── Voice Style Vector (per-voice, 256-dim)
   │
   ▼
-Decoder (StyleTTS2-style, AdaIN + residual blocks)
+Decoder (StyleTTS2-style, AdaIN + residual blocks) [bf16]
   │
   ▼
-ISTFTNet Vocoder (80-bin mel → waveform)
+ISTFTNet Vocoder (80-bin mel → waveform) [float32]
   │
   ▼
-TTSResult { audio float32 @ 24 kHz, duration, voice }
+Optional 2x FFT upsample (24 kHz → 48 kHz)
+  │
+  ▼
+TTSResult { audio float32, duration, voice }
 ```
+
+The neural network runs in bf16 for throughput. At the vocoder boundary, the signal is promoted to float32 for the final waveform reconstruction: exponential magnitude recovery, phase extraction, inverse DFT, and overlap-add synthesis. This split keeps inference fast while preserving the precision that the iSTFT path requires.
 
 ---
 
