@@ -5,9 +5,9 @@
 [![Apple Silicon](https://img.shields.io/badge/Apple_Silicon-required-blue.svg)]()
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)]()
 
-**Kokoro TTS inference on Apple Silicon via MLX.**
+Kokoro TTS inference on Apple Silicon via MLX.
 
-Pure MLX implementation of the full [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) text-to-speech pipeline. No PyTorch, no transformers, no third-party ML frameworks. Three lines to speak.
+An MLX implementation of the [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) text-to-speech pipeline, with no PyTorch or transformers dependency.
 
 > This package provides inference code only. Model weights are developed by [hexgrad](https://huggingface.co/hexgrad) under the [Apache 2.0 license](https://www.apache.org/licenses/LICENSE-2.0) and downloaded separately from HuggingFace Hub on first use.
 
@@ -34,16 +34,16 @@ Model weights download automatically from HuggingFace Hub on first use.
 
 ## Features
 
-- **Fully on-device** via MLX, no server, no cloud, no network during inference
-- **Pure implementation** with no PyTorch or transformers dependency
-- **48 kHz output** from native 24 kHz via FFT upsampling, matching the sample rate modern audio hardware expects
-- **Mixed-precision vocoder**, bf16 through the network, float32 for the final waveform reconstruction
-- **Gapless streaming** over a single persistent audio stream with no inter-chunk silence
-- **54 voices** across American English, British English, and additional languages
-- **WAV export** with a single method call
-- **Thread-safe** with internal lock for concurrent callers
-- **Context manager** for automatic resource cleanup
-- **Speed control** from any multiplier
+- **On-device** via MLX. No server, no network during inference.
+- **No PyTorch or transformers** dependency.
+- **48 kHz output** from native 24 kHz via FFT upsampling.
+- **Mixed-precision vocoder**: bf16 through the network, float32 for waveform reconstruction.
+- **Gapless streaming** over a single persistent audio stream.
+- **54 voices** across American English, British English, and additional languages.
+- **WAV export** in one call.
+- **Thread-safe** with internal lock for concurrent callers.
+- **Context manager** for resource cleanup.
+- **Speed control** via a single multiplier.
 
 ---
 
