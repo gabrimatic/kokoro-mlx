@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from kokoro_mlx.phonemize import Phonemizer
+from kokoro_mlx.phonemize import Phonemizer, language_from_voice, normalize_language
 
 # Load real vocab from the cached model.
 _MODEL_SNAPSHOT = Path.home() / ".cache/huggingface/hub/models--mlx-community--Kokoro-82M-bf16/snapshots/a71e4d38b236d968966a2002c4c895dbd12b1c3c"
@@ -28,6 +28,21 @@ def vocab() -> dict[str, int]:
 @pytest.fixture(scope="module")
 def phonemizer(vocab) -> Phonemizer:
     return Phonemizer(vocab=vocab)
+
+
+class TestLanguageHelpers:
+    def test_normalize_language_aliases(self):
+        assert normalize_language("English") == "en-us"
+        assert normalize_language("en-gb") == "en-gb"
+        assert normalize_language("French") == "fr-fr"
+        assert normalize_language("Mandarin Chinese") == "zh"
+
+    def test_language_from_voice(self):
+        assert language_from_voice("af_heart") == "en-us"
+        assert language_from_voice("bf_alice") == "en-gb"
+        assert language_from_voice("ef_dora") == "es"
+        assert language_from_voice("jf_alpha") == "ja"
+        assert language_from_voice("zf_xiaobei") == "zh"
 
 
 @pytest.mark.slow

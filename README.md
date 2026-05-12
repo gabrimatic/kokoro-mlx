@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)]()
 [![Apple Silicon](https://img.shields.io/badge/Apple_Silicon-required-blue.svg)]()
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)]()
+[![Python 3.10–3.12](https://img.shields.io/badge/Python-3.10--3.12-blue.svg)]()
 
 Kokoro TTS inference on Apple Silicon via MLX.
 
@@ -15,7 +15,7 @@ An MLX implementation of the [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-
 
 ## Quick Start
 
-**Apple Silicon required.** Python 3.10–3.12, MLX 0.22+.
+**Apple Silicon required.** Python 3.10–3.12, MLX 0.31+.
 
 ```bash
 pip install kokoro-mlx
@@ -40,6 +40,7 @@ Model weights download automatically from HuggingFace Hub on first use.
 - **Mixed-precision vocoder**: bf16 through the network, float32 for waveform reconstruction.
 - **Gapless streaming** over a single persistent audio stream.
 - **54 voices** across American English, British English, and additional languages.
+- **Language-aware G2P** inferred from the voice prefix, with explicit language override.
 - **WAV export** in one call.
 - **Thread-safe** with internal lock for concurrent callers.
 - **Context manager** for resource cleanup.
@@ -61,7 +62,7 @@ tts = KokoroTTS.from_pretrained("mlx-community/Kokoro-82M-bf16")
 tts = KokoroTTS.from_pretrained("/path/to/model")
 ```
 
-### `tts.generate(text, voice, speed, sample_rate) -> TTSResult`
+### `tts.generate(text, voice, speed, sample_rate, language) -> TTSResult`
 
 Synthesize text and return a `TTSResult`.
 
@@ -71,12 +72,13 @@ Synthesize text and return a `TTSResult`.
 | `voice` | `str` | `"af_heart"` | Voice name (see [Available Voices](#available-voices)) |
 | `speed` | `float` | `1.0` | Speaking rate multiplier (>1 faster, <1 slower) |
 | `sample_rate` | `int` | `24000` | Output sample rate: 24000 (native) or 48000 (2x upsampled) |
+| `language` | `str` or `None` | `None` | Optional G2P language code/name. `None` infers from the voice prefix. |
 
-### `tts.generate_stream(text, voice, speed, sample_rate) -> Iterator[np.ndarray]`
+### `tts.generate_stream(text, voice, speed, sample_rate, language) -> Iterator[np.ndarray]`
 
 Synthesize text and yield audio chunks sentence by sentence. Lower latency than `generate` for longer inputs.
 
-### `tts.speak(text, voice, speed, stream, stop_event, sample_rate)`
+### `tts.speak(text, voice, speed, stream, stop_event, sample_rate, language)`
 
 Synthesize and immediately play text through the speakers.
 
@@ -88,13 +90,43 @@ Synthesize and immediately play text through the speakers.
 | `stream` | `bool` | `False` | Play chunk-by-chunk for lower latency |
 | `stop_event` | `threading.Event` or `None` | `None` | Set to interrupt playback |
 | `sample_rate` | `int` | `24000` | Output sample rate: 24000 or 48000 |
+| `language` | `str` or `None` | `None` | Optional G2P language code/name. `None` infers from the voice prefix. |
 
-### `tts.save(text, path, voice, speed, sample_rate) -> TTSResult`
+### `tts.save(text, path, voice, speed, sample_rate, language) -> TTSResult`
 
 Synthesize text and write audio to a WAV file.
 
 ```python
 result = tts.save("Hello, world.", "output.wav", sample_rate=48000)
+```
+
+### Language Selection
+
+Default behavior: `kokoro-mlx` infers G2P language from the voice prefix.
+
+| Voice prefix | Language |
+|--------------|----------|
+| `af_`, `am_` | American English |
+| `bf_`, `bm_` | British English |
+| `ef_`, `em_` | Spanish |
+| `ff_` | French |
+| `hf_`, `hm_` | Hindi |
+| `if_`, `im_` | Italian |
+| `jf_`, `jm_` | Japanese |
+| `pf_`, `pm_` | Portuguese |
+| `zf_`, `zm_` | Mandarin Chinese |
+
+Japanese and Mandarin need their optional G2P extras:
+
+```bash
+pip install "kokoro-mlx[ja]"
+pip install "kokoro-mlx[zh]"
+```
+
+Override language when the text and voice prefix intentionally differ:
+
+```python
+tts.generate("Bonjour.", voice="ff_siwis", language="fr")
 ```
 
 ### `tts.list_voices() -> list[str]`
@@ -203,7 +235,7 @@ The network runs in bf16 for throughput. At the vocoder output, the signal is pr
 - Apple Silicon Mac (M1 or later)
 - macOS 13+
 - Python 3.10–3.12
-- MLX 0.22+
+- MLX 0.31+
 
 ---
 

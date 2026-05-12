@@ -15,7 +15,7 @@ import numpy as np
 from .config import KokoroConfig
 from .generate import SAMPLE_RATE, generate, generate_stream
 from .model import KokoroModel
-from .phonemize import Phonemizer
+from .phonemize import Phonemizer, language_from_voice, normalize_language
 from .playback import play, play_stream, save_wav
 from .voices import DEFAULT_VOICE, VoiceManager
 
@@ -56,7 +56,7 @@ class KokoroTTS:
         self._voices = voice_manager
         self._model_path = Path(model_path)
         self._lock = threading.Lock()
-        self._phonemizer = Phonemizer(config.vocab)
+        self._phonemizers: dict[str, Phonemizer] = {}
 
     # ------------------------------------------------------------------
     # Construction
@@ -92,7 +92,12 @@ class KokoroTTS:
     # ------------------------------------------------------------------
 
     def generate(
-        self, text: str, voice: str = DEFAULT_VOICE, speed: float = 1.0, sample_rate: int = SAMPLE_RATE,
+        self,
+        text: str,
+        voice: str = DEFAULT_VOICE,
+        speed: float = 1.0,
+        sample_rate: int = SAMPLE_RATE,
+        language: str | None = None,
     ) -> TTSResult:
         """Synthesize *text* and return a TTSResult.
 
@@ -103,8 +108,11 @@ class KokoroTTS:
             voice: Voice name (see :meth:`list_voices`).
             speed: Speaking rate multiplier (>1 is faster, <1 is slower).
             sample_rate: Output sample rate (24000 or 48000).
+            language: Optional language code/name for G2P. When omitted,
+                it is inferred from the voice prefix.
         """
         with self._lock:
+            phonemizer = self._get_phonemizer(language, voice)
             audio = generate(
                 text=text,
                 model=self._model,
@@ -112,7 +120,7 @@ class KokoroTTS:
                 voice_manager=self._voices,
                 voice=voice,
                 speed=speed,
-                phonemizer=self._phonemizer,
+                phonemizer=phonemizer,
                 sample_rate=sample_rate,
             )
 
@@ -120,7 +128,12 @@ class KokoroTTS:
         return TTSResult(audio=audio, sample_rate=sample_rate, duration=duration, voice=voice)
 
     def generate_stream(
-        self, text: str, voice: str = DEFAULT_VOICE, speed: float = 1.0, sample_rate: int = SAMPLE_RATE,
+        self,
+        text: str,
+        voice: str = DEFAULT_VOICE,
+        speed: float = 1.0,
+        sample_rate: int = SAMPLE_RATE,
+        language: str | None = None,
     ) -> Iterator[np.ndarray]:
         """Synthesize *text* and yield audio chunks as they are produced.
 
@@ -132,7 +145,10 @@ class KokoroTTS:
             voice: Voice name (see :meth:`list_voices`).
             speed: Speaking rate multiplier.
             sample_rate: Output sample rate (24000 or 48000).
+            language: Optional language code/name for G2P. When omitted,
+                it is inferred from the voice prefix.
         """
+        phonemizer = self._get_phonemizer(language, voice)
         yield from generate_stream(
             text=text,
             model=self._model,
@@ -140,7 +156,7 @@ class KokoroTTS:
             voice_manager=self._voices,
             voice=voice,
             speed=speed,
-            phonemizer=self._phonemizer,
+            phonemizer=phonemizer,
             sample_rate=sample_rate,
         )
 
@@ -152,6 +168,7 @@ class KokoroTTS:
         stream: bool = False,
         stop_event=None,
         sample_rate: int = SAMPLE_RATE,
+        language: str | None = None,
     ) -> None:
         """Synthesize and immediately play *text* through the speakers.
 
@@ -162,15 +179,17 @@ class KokoroTTS:
             stream: When True, generate and play chunk-by-chunk for lower latency.
             stop_event: Optional ``threading.Event``; playback halts when set.
             sample_rate: Output sample rate (24000 or 48000).
+            language: Optional language code/name for G2P. When omitted,
+                it is inferred from the voice prefix.
         """
         if stream:
             play_stream(
-                self.generate_stream(text, voice=voice, speed=speed, sample_rate=sample_rate),
+                self.generate_stream(text, voice=voice, speed=speed, sample_rate=sample_rate, language=language),
                 sample_rate=sample_rate,
                 stop_event=stop_event,
             )
         else:
-            result = self.generate(text, voice=voice, speed=speed, sample_rate=sample_rate)
+            result = self.generate(text, voice=voice, speed=speed, sample_rate=sample_rate, language=language)
             play(result.audio, sample_rate=sample_rate)
 
     def save(
@@ -180,6 +199,7 @@ class KokoroTTS:
         voice: str = DEFAULT_VOICE,
         speed: float = 1.0,
         sample_rate: int = SAMPLE_RATE,
+        language: str | None = None,
     ) -> TTSResult:
         """Synthesize *text* and write the audio to a WAV file.
 
@@ -189,14 +209,22 @@ class KokoroTTS:
             voice: Voice name.
             speed: Speaking rate multiplier.
             sample_rate: Output sample rate (24000 or 48000).
+            language: Optional language code/name for G2P. When omitted,
+                it is inferred from the voice prefix.
         """
-        result = self.generate(text, voice=voice, speed=speed, sample_rate=sample_rate)
+        result = self.generate(text, voice=voice, speed=speed, sample_rate=sample_rate, language=language)
         save_wav(result.audio, path, sample_rate=sample_rate)
         return result
 
     def list_voices(self) -> list[str]:
         """Return sorted list of available voice names."""
         return self._voices.list_voices()
+
+    def _get_phonemizer(self, language: str | None, voice: str) -> Phonemizer:
+        lang = normalize_language(language or language_from_voice(voice))
+        if lang not in self._phonemizers:
+            self._phonemizers[lang] = Phonemizer(self._config.vocab, language=lang)
+        return self._phonemizers[lang]
 
     # ------------------------------------------------------------------
     # Resource management
@@ -205,6 +233,7 @@ class KokoroTTS:
     def close(self) -> None:
         """Release held resources (voice cache, etc.)."""
         self._voices._cache.clear()
+        self._phonemizers.clear()
 
     def __enter__(self) -> "KokoroTTS":
         return self

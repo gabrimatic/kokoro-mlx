@@ -3,11 +3,11 @@
 
 """kokoro-mlx: Kokoro TTS inference on Apple Silicon via MLX."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.2"
 
 from .config import ISTFTNetConfig, KokoroConfig, PLBertConfig
 from .kokoro import KokoroTTS, TTSResult
-from .phonemize import Phonemizer
+from .phonemize import Phonemizer, language_from_voice, normalize_language
 from .voices import DEFAULT_VOICE, VoiceManager
 
 __all__ = [
@@ -18,6 +18,8 @@ __all__ = [
     "KokoroTTS",
     "TTSResult",
     "Phonemizer",
+    "language_from_voice",
+    "normalize_language",
     "VoiceManager",
     "DEFAULT_VOICE",
 ]

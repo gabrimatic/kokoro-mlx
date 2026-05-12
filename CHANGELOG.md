@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.2] - 2026-05-12
+
+### Changed
+
+- Require MLX 0.31+ and align runtime dependencies with the current MLX audio ecosystem.
+- Constrain Python support to 3.10-3.12, matching the current `misaki[en]` support range.
+- Infer G2P language from Kokoro voice prefixes, with an explicit `language` override on `generate`, `generate_stream`, `speak`, and `save`.
+- Add optional Japanese and Mandarin G2P extras: `kokoro-mlx[ja]`, `kokoro-mlx[zh]`, and `kokoro-mlx[multilingual]`.
+- Update README API and language selection docs.
+
 ## [0.1.0] - 2026-02-28
 
 ### Added

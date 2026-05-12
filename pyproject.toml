@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kokoro-mlx"
-version = "0.1.1"
+version = "0.1.2"
 description = "Kokoro TTS inference on Apple Silicon via MLX"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13"
 authors = [
     { name = "Soroush Yousefpour" }
 ]
@@ -23,16 +23,14 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
 dependencies = [
-    "mlx>=0.22.0",
-    "numpy>=1.24.0",
-    "huggingface-hub>=0.20.0",
-    "soundfile>=0.12.0",
-    "safetensors>=0.4.0",
+    "mlx>=0.31.1",
+    "numpy>=1.26.4",
+    "huggingface-hub>=1.0.0",
+    "soundfile>=0.13.1",
+    "safetensors>=0.7.0",
     "misaki[en]>=0.9.4",
 ]
 
@@ -44,6 +42,9 @@ Changelog = "https://github.com/gabrimatic/kokoro-mlx/releases"
 
 [project.optional-dependencies]
 audio = ["sounddevice>=0.4.0"]
+ja = ["misaki[ja]>=0.9.4"]
+zh = ["misaki[zh]>=0.9.4"]
+multilingual = ["misaki[ja,zh]>=0.9.4"]
 dev = ["pytest"]
 
 [tool.ruff]
