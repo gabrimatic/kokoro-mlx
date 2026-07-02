@@ -6,33 +6,25 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import mlx.core as mx
-import mlx.nn as nn
 import numpy as np
 import pytest
 
+from kokoro_mlx.istftnet import (
+    AdaIN1d,
+    AdainResBlk1d,
+    AdaINResBlock1,
+    iSTFT,
+)
 from kokoro_mlx.modules import (
     ALBERT,
-    AdaLayerNorm,
     BiLSTM,
-    DurationEncoder,
     LayerNorm,
-    LinearNorm,
     TextEncoder,
     WeightNormConv1d,
 )
-from kokoro_mlx.istftnet import (
-    AdaIN1d,
-    AdaINResBlock1,
-    AdainResBlk1d,
-    Decoder,
-    Generator,
-    SineGen,
-    SourceModuleHnNSF,
-    iSTFT,
-)
-
 
 # ---------------------------------------------------------------------------
 # WeightNormConv1d
@@ -350,6 +342,3 @@ class TestKokoroModelForward:
         mx.eval(audio)
         assert audio.ndim == 1
         assert audio.shape[0] > 100
-
-
-from pathlib import Path

@@ -41,8 +41,6 @@ class TestVoiceManager:
 
     @pytest.mark.slow
     def test_get_style_shape(self, manager):
-        import mlx.core as mx
-
         voice = manager.load_voice("af_heart")
         style = manager.get_style(voice, num_tokens=10)
         assert list(style.shape) == [1, 256]

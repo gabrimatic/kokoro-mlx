@@ -157,7 +157,6 @@ class TestSaveWav:
         import soundfile as sf
 
         from kokoro_mlx.generate import generate
-        from kokoro_mlx.playback import save_wav
 
         audio = generate("Round trip test.", model, config, voice_manager)
 
