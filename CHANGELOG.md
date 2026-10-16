@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- `KokoroModel.forward(..., return_pred_dur=True)` also returns the predicted per-token durations (in 600-sample frames) the audio was rendered from, for exact phoneme and word timestamps.
+
 ## [0.1.4] - 2026-10-15
 
 ### Fixed

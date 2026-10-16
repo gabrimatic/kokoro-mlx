@@ -325,6 +325,35 @@ class TestKokoroModelForward:
         arr = np.array(audio.tolist())
         assert not np.any(np.isnan(arr))
 
+    def test_forward_return_pred_dur(self, model):
+        ref_s = mx.zeros((1, 256))
+        phonemes = "".join(list(model.vocab.keys())[:5])
+        audio, pred_dur = model.forward(phonemes, ref_s, return_pred_dur=True)
+        mx.eval(audio)
+        assert audio.ndim == 1
+        # BOS pad + one per phoneme + EOS pad, each at least one frame
+        assert pred_dur.shape == (len(phonemes) + 2,)
+        assert pred_dur.min() >= 1
+        # The audio is rendered from exactly these durations: 600 samples per frame
+        assert audio.shape[0] == int(pred_dur.sum()) * 600
+
+    def test_pred_dur_skips_unknown_characters(self, model):
+        ref_s = mx.zeros((1, 256))
+        known = "".join(list(model.vocab.keys())[:5])
+        unknown = next(c for c in "[]{}<>@#" if c not in model.vocab)
+        _, pred_dur = model.forward(known[:2] + unknown + known[2:], ref_s, return_pred_dur=True)
+        assert pred_dur.shape == (len(known) + 2,)
+
+    def test_pred_dur_matches_default_audio(self, model):
+        ref_s = mx.zeros((1, 256))
+        phonemes = "".join(list(model.vocab.keys())[:5])
+        mx.random.seed(0)
+        plain = model.forward(phonemes, ref_s)
+        mx.random.seed(0)
+        audio, _ = model.forward(phonemes, ref_s, return_pred_dur=True)
+        # GPU reductions are not bit-exact between calls (~1e-6 here), so compare closely
+        np.testing.assert_allclose(np.array(audio), np.array(plain), rtol=0, atol=1e-4)
+
     def test_forward_with_real_voice(self, model):
         """Test with a real voice style vector from safetensors."""
         from kokoro_mlx.voices import VoiceManager
