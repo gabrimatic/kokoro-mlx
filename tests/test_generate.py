@@ -166,3 +166,65 @@ class TestSaveWav:
             sf.write(str(path), audio, 24000, subtype="FLOAT")
             data, _ = sf.read(str(path), dtype="float32")
             np.testing.assert_allclose(audio, data, atol=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# Style selection (no model weights needed)
+# ---------------------------------------------------------------------------
+
+
+class _RecordingModel:
+    """Stands in for KokoroModel and records the style vector of every call."""
+
+    def __init__(self):
+        self.rows = []
+
+    def forward(self, phonemes, ref_s, speed=1.0):
+        import mlx.core as mx
+
+        self.rows.append(int(ref_s[0, 0].item()))
+        return mx.zeros((600,))
+
+
+class _FixedPhonemizer:
+    def __init__(self, lengths):
+        # (phonemes, token_ids) as Phonemizer.phonemize_long returns them: ids wrapped in BOS/EOS pads
+        self.chunks = [("a" * n, [0, *range(1, n + 1), 0]) for n in lengths]
+
+    def phonemize_long(self, text):
+        return self.chunks
+
+
+class _RowVoices:
+    """A 510-row voice whose row i is filled with i, so the chosen row can be read back."""
+
+    def load_voice(self, name):
+        import mlx.core as mx
+
+        return mx.broadcast_to(mx.arange(510, dtype=mx.float32)[:, None, None], (510, 1, 256))
+
+    def get_style(self, voice, num_tokens):
+        from kokoro_mlx.voices import VoiceManager
+
+        return VoiceManager.get_style(self, voice, num_tokens)
+
+
+class TestStyleSelection:
+    """n phonemes use style row n - 1, as the reference pipeline does (pack[len(ps) - 1])."""
+
+    LENGTHS = [1, 12, 300, 510]
+    ROWS = [0, 11, 299, 509]
+
+    def test_generate_indexes_style_by_phoneme_count(self):
+        from kokoro_mlx.generate import generate
+
+        model = _RecordingModel()
+        generate("text", model, None, _RowVoices(), phonemizer=_FixedPhonemizer(self.LENGTHS))
+        assert model.rows == self.ROWS
+
+    def test_generate_stream_indexes_style_by_phoneme_count(self):
+        from kokoro_mlx.generate import generate_stream
+
+        model = _RecordingModel()
+        list(generate_stream("text", model, None, _RowVoices(), phonemizer=_FixedPhonemizer(self.LENGTHS)))
+        assert model.rows == self.ROWS

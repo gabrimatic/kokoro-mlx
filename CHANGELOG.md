@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- Select the voice style by phoneme count, as the reference pipeline does. `generate()` and `generate_stream()` counted the BOS/EOS pads, so `n` phonemes used style row `n + 1` instead of `n - 1`. Default output audio changes slightly, most for short inputs.
+
 ## [0.1.4] - 2026-10-15
 
 ### Fixed

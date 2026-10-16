@@ -66,7 +66,9 @@ def generate(
 
     audio_chunks = []
     for phonemes, token_ids in chunks:
-        style = voice_manager.get_style(voice_array, len(token_ids))
+        # token_ids carries the BOS/EOS pads; styles are indexed by phoneme count,
+        # as in the reference pipeline (pack[len(ps) - 1]).
+        style = voice_manager.get_style(voice_array, max(len(token_ids) - 2, 1))
         audio = model.forward(phonemes, style, speed)
         audio_chunks.append(np.array(audio, dtype=np.float32))
 
@@ -117,7 +119,9 @@ def generate_stream(
     upsample = sample_rate == 48000
 
     for phonemes, token_ids in chunks:
-        style = voice_manager.get_style(voice_array, len(token_ids))
+        # token_ids carries the BOS/EOS pads; styles are indexed by phoneme count,
+        # as in the reference pipeline (pack[len(ps) - 1]).
+        style = voice_manager.get_style(voice_array, max(len(token_ids) - 2, 1))
         audio = model.forward(phonemes, style, speed)
         chunk = np.array(audio, dtype=np.float32)
         if upsample and len(chunk) > 0:
