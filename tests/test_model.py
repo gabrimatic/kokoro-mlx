@@ -261,7 +261,7 @@ class TestALBERT:
 # ---------------------------------------------------------------------------
 
 
-MODEL_PATH = "/Users/soroush/.cache/huggingface/hub/models--mlx-community--Kokoro-82M-bf16/snapshots/a71e4d38b236d968966a2002c4c895dbd12b1c3c"
+MODEL_PATH = str(Path.home() / ".cache/huggingface/hub/models--mlx-community--Kokoro-82M-bf16/snapshots/a71e4d38b236d968966a2002c4c895dbd12b1c3c")
 WEIGHTS_PATH = f"{MODEL_PATH}/kokoro-v1_0.safetensors"
 
 

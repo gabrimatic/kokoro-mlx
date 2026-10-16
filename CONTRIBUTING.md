@@ -18,7 +18,13 @@ Run the test suite:
 python -m pytest tests/ -v
 ```
 
-Tests that load the full model weights are marked `slow`. To skip them:
+Tests that load the full model weights are marked `slow`. They read the model from the Hugging Face cache at a pinned snapshot; download it once with:
+
+```bash
+hf download mlx-community/Kokoro-82M-bf16 --revision a71e4d38b236d968966a2002c4c895dbd12b1c3c
+```
+
+To skip them:
 
 ```bash
 python -m pytest tests/ -v -m "not slow"
